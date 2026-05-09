@@ -1,15 +1,27 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, ActivityIndicator, RefreshControl,
+  View, Text, StyleSheet, FlatList,
+  TouchableOpacity, ActivityIndicator,
+  RefreshControl, Dimensions, TextInput,
 } from 'react-native';
-import { collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
-import { db, auth } from '../firebase/config';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { db, auth } from '../firebase/config';
 import { Bounty } from '../types';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const CATEGORIES = ['ALL', 'ITEMS', 'SERVICES', 'REQUESTS'];
+const { width } = Dimensions.get('window');
+
+const FILTERS = ['ALL', 'OFFER', 'REQUEST', 'ITEM', 'SERVICE'];
+
+const TYPE_COLORS: Record<string, string[]> = {
+  OFFER: ['#7C3AED', '#A855F7'],
+  REQUEST: ['#FF2D78', '#FF6B9D'],
+  ITEM: ['#00D4FF', '#0EA5E9'],
+  SERVICE: ['#00FFB2', '#10B981'],
+};
 
 const CATEGORY_ICONS: Record<string, string> = {
   'Education & Wellness': '📚',
@@ -22,6 +34,14 @@ const CATEGORY_ICONS: Record<string, string> = {
   'Pet Care': '🐾',
   'Cleaning': '🧹',
   'Moving': '📦',
+  'Technology': '💻',
+  'Design': '🎨',
+};
+
+const GLASS = {
+  backgroundColor: 'rgba(255,255,255,0.06)',
+  borderWidth: 1,
+  borderColor: 'rgba(255,255,255,0.1)',
 };
 
 export default function HomeScreen() {
@@ -30,6 +50,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('ALL');
+  const [search, setSearch] = useState('');
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -37,193 +58,300 @@ export default function HomeScreen() {
       collection(db, 'bounties'),
       orderBy('timestamp', 'desc')
     );
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
+        ...doc.data(),
       })) as Bounty[];
       setBounties(data);
       setLoading(false);
       setRefreshing(false);
     });
-
     return unsubscribe;
   }, []);
 
-  const filteredBounties = bounties.filter(b => {
-    if (activeFilter === 'ALL') return true;
-    if (activeFilter === 'ITEMS') return b.classification === 'ITEM';
-    if (activeFilter === 'SERVICES') return b.classification === 'SERVICE';
-    if (activeFilter === 'REQUESTS') return b.type === 'REQUEST';
-    return true;
+  const filtered = bounties.filter(b => {
+    const matchesFilter =
+      activeFilter === 'ALL' ||
+      b.type === activeFilter ||
+      b.classification === activeFilter;
+    const matchesSearch =
+      !search ||
+      b.title?.toLowerCase().includes(search.toLowerCase()) ||
+      b.category?.toLowerCase().includes(search.toLowerCase());
+    return matchesFilter && matchesSearch;
   });
 
-  const getCategoryIcon = (category: string) => {
-    return CATEGORY_ICONS[category] || '⚡';
-  };
+  const getIcon = (category: string) =>
+    CATEGORY_ICONS[category] || '⚡';
 
-  const getTypeColor = (type: string) => {
-    return type === 'OFFER' ? '#6AAF45' : '#F5A623';
-  };
-
-  const renderBounty = ({ item }: { item: Bounty }) => (
+  const renderBounty = ({ item, index }: { item: Bounty; index: number }) => (
     <TouchableOpacity
-      style={styles.bountyCard}
+      style={styles.card}
       activeOpacity={0.85}
       onPress={() => navigation.navigate('BountyDetail', { bounty: item })}
     >
-      <View style={styles.bountyCardTop}>
-        <View style={styles.bountyIconBox}>
-          <Text style={styles.bountyIconText}>
-            {getCategoryIcon(item.category)}
-          </Text>
+      {/* TOP ROW */}
+      <View style={styles.cardTop}>
+        <View style={styles.cardEmoji}>
+          <Text style={{ fontSize: 22 }}>{getIcon(item.category)}</Text>
         </View>
-        <View style={styles.bountyTopRight}>
-          <View style={[styles.typeTag, { backgroundColor: getTypeColor(item.type) + '22' }]}>
-            <Text style={[styles.typeTagText, { color: getTypeColor(item.type) }]}>
-              {item.type}
-            </Text>
-          </View>
-          <Text style={styles.bountyCategory}>{item.category}</Text>
+        <View style={styles.cardTopRight}>
+          <LinearGradient
+            colors={TYPE_COLORS[item.type] || ['#7C3AED', '#FF2D78']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.typeTag}
+          >
+            <Text style={styles.typeTagText}>{item.type}</Text>
+          </LinearGradient>
+          <Text style={styles.categoryText}>{item.category}</Text>
         </View>
       </View>
 
-      <Text style={styles.bountyTitle}>{item.title}</Text>
-      <Text style={styles.bountyDesc} numberOfLines={2}>{item.description}</Text>
+      {/* TITLE & DESC */}
+      <Text style={styles.cardTitle}>{item.title}</Text>
+      <Text style={styles.cardDesc} numberOfLines={2}>
+        {item.description}
+      </Text>
 
-      <View style={styles.bountyFooter}>
-        <View style={styles.karmaRow}>
-          <Text style={styles.karmaCoin}>🪙</Text>
-          <Text style={styles.karmaText}>{item.creatorKarma} Karma</Text>
-        </View>
+      {/* WANTS ROW */}
+      <View style={styles.wantsRow}>
+        <Text style={styles.wantsLabel}>Wants </Text>
+        <Text style={styles.wantsArrow}>→ </Text>
+        <Text style={styles.wantsValue} numberOfLines={1}>
+          {item.classification === 'ITEM' ? 'Goods/Items' : 'Services'}
+        </Text>
+      </View>
+
+      {/* FOOTER */}
+      <View style={styles.cardFooter}>
         <View style={styles.creatorRow}>
-          <View style={styles.creatorAvatar}>
-            <Text style={styles.creatorAvatarText}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
               {item.creatorDisplayName?.[0]?.toUpperCase() || '?'}
             </Text>
           </View>
-          <Text style={styles.creatorName}>{item.creatorDisplayName}</Text>
+          <View>
+            <Text style={styles.creatorName}>
+              {item.creatorDisplayName}
+            </Text>
+            <Text style={styles.location}>📍 {item.zipCode}</Text>
+          </View>
+        </View>
+        <View style={styles.scoreBox}>
+          <Text style={styles.scoreNumber}>✦ {item.creatorKarma}</Text>
+          <Text style={styles.scoreLabel}>Trust</Text>
         </View>
       </View>
 
-      <View style={styles.bountyCardFooter}>
-        <Text style={styles.zipCode}>📍 {item.zipCode}</Text>
-        <View style={[styles.statusDot, {
-          backgroundColor: item.status === 'OPEN' ? '#6AAF45' : '#999'
-        }]} />
-      </View>
+      {/* STATUS DOT */}
+      <View style={[
+        styles.statusDot,
+        { backgroundColor: item.status === 'OPEN' ? '#00FFB2' : '#666' }
+      ]} />
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <LinearGradient
+      colors={['#0A0015', '#0D0A2E', '#0A1628']}
+      style={styles.container}
+    >
+      {/* ORBS */}
+      <View style={[styles.orb, styles.orb1]} />
+      <View style={[styles.orb, styles.orb2]} />
 
-      {/* HEADER */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerGreeting}>
-            Hey {user?.displayName?.split(' ')[0] || 'Neighbor'} 👋
-          </Text>
-          <Text style={styles.headerTitle}>The Village</Text>
+      <SafeAreaView style={{ flex: 1 }}>
+
+        {/* HEADER */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>
+              Hey {user?.displayName?.split(' ')[0] || 'Neighbor'} 👋
+            </Text>
+            <Text style={styles.headerTitle}>The Village</Text>
+          </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.postBtn}
+              onPress={() => navigation.navigate('PostBounty')}
+            >
+              <LinearGradient
+                colors={['#7C3AED', '#FF2D78']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.postBtnGradient}
+              >
+                <Text style={styles.postBtnText}>+ Post</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => navigation.navigate('Profile')}
+            >
+              <Text style={styles.profileBtnText}>
+                {user?.displayName?.[0]?.toUpperCase() || '?'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.headerRight}>
+
+        {/* SEARCH */}
+        <View style={styles.searchWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search trades, skills, goods..."
+            placeholderTextColor="rgba(255,255,255,0.25)"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 16 }}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* FILTERS */}
+        <View style={styles.filtersWrapper}>
+          <FlatList
+            horizontal
+            data={FILTERS}
+            keyExtractor={item => item}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersList}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                onPress={() => setActiveFilter(item)}
+                style={[
+                  styles.filterChip,
+                  activeFilter === item && styles.filterChipActive,
+                ]}
+              >
+                {activeFilter === item ? (
+                  <LinearGradient
+                    colors={['#7C3AED', '#FF2D78']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.filterChipGradient}
+                  >
+                    <Text style={styles.filterChipTextActive}>{item}</Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={styles.filterChipText}>{item}</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+
+        {/* CONTENT */}
+        {loading ? (
+          <View style={styles.loadingBox}>
+            <ActivityIndicator size="large" color="#7C3AED" />
+            <Text style={styles.loadingText}>Loading the village...</Text>
+          </View>
+        ) : filtered.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <Text style={{ fontSize: 56, marginBottom: 16 }}>🏡</Text>
+            <Text style={styles.emptyTitle}>
+              {search ? 'No results found' : 'No bounties yet!'}
+            </Text>
+            <Text style={styles.emptySub}>
+              {search
+                ? 'Try a different search term'
+                : 'Be the first neighbor to post one.'}
+            </Text>
+            {!search && (
+              <TouchableOpacity
+                style={styles.emptyBtn}
+                onPress={() => navigation.navigate('PostBounty')}
+              >
+                <LinearGradient
+                  colors={['#7C3AED', '#FF2D78']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.emptyBtnGradient}
+                >
+                  <Text style={styles.emptyBtnText}>Post a Bounty →</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            renderItem={renderBounty}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => setRefreshing(true)}
+                tintColor="#7C3AED"
+              />
+            }
+          />
+        )}
+
+        {/* BOTTOM NAV */}
+        <View style={styles.bottomNav}>
+          <TouchableOpacity style={styles.navItem}>
+            <Text style={styles.navIcon}>🏡</Text>
+            <Text style={[styles.navLabel, styles.navLabelActive]}>
+              Village
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.postBtn}
+            style={styles.navItem}
             onPress={() => navigation.navigate('PostBounty')}
           >
-            <Text style={styles.postBtnText}>+ Post</Text>
+            <LinearGradient
+              colors={['#7C3AED', '#FF2D78']}
+              style={styles.navPostBtn}
+            >
+              <Text style={styles.navPostBtnText}>+</Text>
+            </LinearGradient>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={styles.profileBtn}
+            style={styles.navItem}
             onPress={() => navigation.navigate('Profile')}
           >
-            <Text style={styles.profileBtnText}>
-              {user?.displayName?.[0]?.toUpperCase() || '?'}
-            </Text>
+            <Text style={styles.navIcon}>👤</Text>
+            <Text style={styles.navLabel}>My Porch</Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* FILTER TABS */}
-      <View style={styles.filterRow}>
-        {CATEGORIES.map(cat => (
-          <TouchableOpacity
-            key={cat}
-            style={[styles.filterTab, activeFilter === cat && styles.filterTabActive]}
-            onPress={() => setActiveFilter(cat)}
-          >
-            <Text style={[styles.filterTabText, activeFilter === cat && styles.filterTabTextActive]}>
-              {cat}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* BOUNTY LIST */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6AAF45" />
-          <Text style={styles.loadingText}>Loading the village...</Text>
-        </View>
-      ) : filteredBounties.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyEmoji}>🏡</Text>
-          <Text style={styles.emptyTitle}>No bounties yet!</Text>
-          <Text style={styles.emptySub}>Be the first neighbor to post one.</Text>
-          <TouchableOpacity
-            style={styles.emptyBtn}
-            onPress={() => navigation.navigate('PostBounty')}
-          >
-            <Text style={styles.emptyBtnText}>Post a Bounty →</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredBounties}
-          renderItem={renderBounty}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => setRefreshing(true)}
-              tintColor="#6AAF45"
-            />
-          }
-        />
-      )}
-
-      {/* BOTTOM NAV */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Text style={styles.navIcon}>🏡</Text>
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Village</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation.navigate('PostBounty')}
-        >
-          <View style={styles.navPostBtn}>
-            <Text style={styles.navPostBtnText}>+</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => navigation.navigate('Profile')}
-        >
-          <Text style={styles.navIcon}>👤</Text>
-          <Text style={styles.navLabel}>My Porch</Text>
-        </TouchableOpacity>
-      </View>
-
-    </SafeAreaView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F2' },
+  container: { flex: 1 },
+
+  orb: { position: 'absolute', borderRadius: 9999 },
+  orb1: {
+    width: 300,
+    height: 300,
+    backgroundColor: '#7C3AED',
+    opacity: 0.08,
+    top: -100,
+    right: -80,
+  },
+  orb2: {
+    width: 200,
+    height: 200,
+    backgroundColor: '#FF2D78',
+    opacity: 0.06,
+    bottom: 100,
+    left: -60,
+  },
 
   // HEADER
   header: {
@@ -231,180 +359,298 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
+    borderBottomColor: 'rgba(255,255,255,0.06)',
   },
-  headerGreeting: { fontSize: 13, color: '#999', fontWeight: '500' },
+  greeting: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
   headerTitle: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#1A1A1A',
-    fontStyle: 'italic',
+    color: '#fff',
+    letterSpacing: -0.5,
   },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  postBtn: {
-    backgroundColor: '#6AAF45',
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  postBtn: { borderRadius: 20, overflow: 'hidden' },
+  postBtnGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
   },
-  postBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  postBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
+  },
   profileBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: 'rgba(124,58,237,0.3)',
+    borderWidth: 1,
+    borderColor: '#7C3AED',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  profileBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  profileBtnText: {
+    color: '#A78BFA',
+    fontWeight: '800',
+    fontSize: 14,
+  },
+
+  // SEARCH
+  searchWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  searchIcon: { fontSize: 16, opacity: 0.5 },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#fff',
+  },
 
   // FILTERS
-  filterRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    gap: 8,
+  filtersWrapper: {
     borderBottomWidth: 1,
-    borderBottomColor: '#EFEFEF',
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+    marginBottom: 4,
   },
-  filterTab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  filtersList: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChip: {
     borderRadius: 20,
-    backgroundColor: '#F2F2F2',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: '#E8E8E8',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
-  filterTabActive: {
-    backgroundColor: '#6AAF45',
-    borderColor: '#6AAF45',
+  filterChipActive: {
+    borderColor: 'transparent',
   },
-  filterTabText: { fontSize: 12, fontWeight: '600', color: '#999' },
-  filterTabTextActive: { color: '#fff' },
+  filterChipGradient: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  filterChipText: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.4)',
+  },
+  filterChipTextActive: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
 
   // LIST
-  list: { padding: 16, gap: 12 },
+  list: { padding: 16, gap: 12, paddingBottom: 80 },
 
-  // BOUNTY CARD
-  bountyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+  // CARD
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: '#EFEFEF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: 16,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  bountyCardTop: {
+  cardTop: {
     flexDirection: 'row',
     gap: 12,
     marginBottom: 12,
   },
-  bountyIconBox: {
-    width: 48,
-    height: 48,
+  cardEmoji: {
+    width: 46,
+    height: 46,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
-    backgroundColor: '#F2F2F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bountyIconText: { fontSize: 24 },
-  bountyTopRight: { flex: 1, justifyContent: 'center', gap: 4 },
+  cardTopRight: {
+    flex: 1,
+    justifyContent: 'center',
+    gap: 4,
+  },
   typeTag: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 6,
   },
-  typeTagText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
-  bountyCategory: { fontSize: 12, color: '#999', fontWeight: '500' },
-  bountyTitle: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#1A1A1A',
-    fontStyle: 'italic',
+  typeTagText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  categoryText: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.35)',
+    fontWeight: '500',
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
     marginBottom: 6,
   },
-  bountyDesc: { fontSize: 13, color: '#777', lineHeight: 19, marginBottom: 12 },
-
-  bountyFooter: {
+  cardDesc: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+    lineHeight: 19,
+    marginBottom: 12,
+  },
+  wantsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 12,
+  },
+  wantsLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
+  },
+  wantsArrow: { fontSize: 12, color: '#7C3AED' },
+  wantsValue: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    fontWeight: '500',
+    flex: 1,
+  },
+  cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
   },
-  karmaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  karmaCoin: { fontSize: 18 },
-  karmaText: { fontSize: 14, fontWeight: '700', color: '#1A1A1A' },
-  creatorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  creatorAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#1A1A1A',
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(124,58,237,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  creatorAvatarText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  creatorName: { fontSize: 12, color: '#999', fontWeight: '500' },
-
-  bountyCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F2',
+  avatarText: {
+    color: '#A78BFA',
+    fontSize: 12,
+    fontWeight: '800',
   },
-  zipCode: { fontSize: 11, color: '#BBB' },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  creatorName: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '600',
+  },
+  location: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.25)',
+  },
+  scoreBox: { alignItems: 'flex-end' },
+  scoreNumber: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#00FFB2',
+  },
+  scoreLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.25)',
+  },
+  statusDot: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
 
   // LOADING
-  loadingContainer: {
+  loadingBox: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     gap: 12,
   },
-  loadingText: { color: '#999', fontSize: 14 },
+  loadingText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 14,
+  },
 
   // EMPTY
-  emptyContainer: {
+  emptyBox: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
   },
-  emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#1A1A1A',
-    fontStyle: 'italic',
+    color: '#fff',
     marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  emptySub: { fontSize: 15, color: '#999', textAlign: 'center', marginBottom: 24 },
-  emptyBtn: {
-    backgroundColor: '#6AAF45',
-    borderRadius: 12,
+  emptySub: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.35)',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  emptyBtn: { borderRadius: 12, overflow: 'hidden' },
+  emptyBtnGradient: {
     paddingVertical: 14,
     paddingHorizontal: 24,
+    borderRadius: 12,
   },
-  emptyBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  emptyBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 15,
+  },
 
   // BOTTOM NAV
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(10,0,21,0.95)',
     borderTopWidth: 1,
-    borderTopColor: '#EFEFEF',
+    borderTopColor: 'rgba(255,255,255,0.06)',
     paddingBottom: 20,
     paddingTop: 10,
   },
@@ -415,21 +661,24 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   navIcon: { fontSize: 22 },
-  navLabel: { fontSize: 10, color: '#999', fontWeight: '600' },
-  navLabelActive: { color: '#6AAF45' },
+  navLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.3)',
+    fontWeight: '600',
+  },
+  navLabelActive: { color: '#7C3AED' },
   navPostBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#6AAF45',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -20,
-    shadowColor: '#6AAF45',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
   },
-  navPostBtnText: { color: '#fff', fontSize: 28, fontWeight: '300', marginTop: -2 },
+  navPostBtnText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '300',
+    marginTop: -2,
+  },
 });
