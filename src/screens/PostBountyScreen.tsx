@@ -49,7 +49,7 @@ const EXCHANGE_TYPES = [
   },
   {
     id: 'SERVICE',
-    label: 'Service Swap',
+    label: 'Skill Swap',
     desc: 'Skills for goods or skills',
     icon: '🛠️',
     colors: ['#FF2D78', '#FF6B9D'] as [string, string],
@@ -73,35 +73,50 @@ export default function PostBountyScreen() {
   const [zip, setZip] = useState('');
 
   const handlePost = async () => {
-    if (!title || !description || !category || !zip) {
-      return Alert.alert(
-        'Missing fields',
-        'Please fill in title, description, category and zip code.'
-      );
+    if (!title.trim()) {
+      return Alert.alert('Missing Title', 'Please add a title for your listing.');
     }
+    if (!description.trim()) {
+      return Alert.alert('Missing Description', 'Please describe what you\'re trading.');
+    }
+    if (!category) {
+      return Alert.alert('Missing Category', 'Please select a category.');
+    }
+    if (!zip.trim()) {
+      return Alert.alert('Missing Location', 'Please enter your zip code.');
+    }
+
     setLoading(true);
     try {
       await addDoc(collection(db, 'bounties'), {
         creatorId: user?.uid,
-        creatorDisplayName: user?.displayName || 'Anonymous',
-        creatorKarma: 5,
-        title,
-        description,
+        creatorDisplayName: user?.displayName ||
+          user?.email?.split('@')[0] || 'Anonymous',
+        // Trust score starts at 0 for new traders
+        creatorTrustScore: 0,
+        title: title.trim(),
+        description: description.trim(),
         category,
         type,
         classification,
         exchangeType,
-        wantedItem,
+        wantedItem: wantedItem.trim(),
         cashAmount: cashAmount ? parseFloat(cashAmount) : 0,
         status: 'OPEN',
-        zipCode: zip,
+        zipCode: zip.trim(),
         imageUrl: null,
         timestamp: serverTimestamp(),
       });
+
       Alert.alert(
-        '🎉 Bounty Posted!',
-        'Your listing is now live in the village.',
-        [{ text: 'View Feed', onPress: () => navigation.goBack() }]
+        '🎉 Listing Posted!',
+        'Your listing is now live. Other traders can find and respond to it.',
+        [
+          {
+            text: 'View Market',
+            onPress: () => navigation.goBack(),
+          },
+        ]
       );
     } catch (error: any) {
       Alert.alert('Error', error.message);
@@ -129,7 +144,7 @@ export default function PostBountyScreen() {
           >
             <Text style={styles.backText}>← Back</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Post a Bounty</Text>
+          <Text style={styles.headerTitle}>New Listing</Text>
           <View style={{ width: 60 }} />
         </View>
 
@@ -139,12 +154,13 @@ export default function PostBountyScreen() {
           showsVerticalScrollIndicator={false}
         >
 
-          {/* TYPE TOGGLE — OFFER or REQUEST */}
+          {/* LISTING TYPE CARD */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>WHAT ARE YOU DOING?</Text>
+            <Text style={styles.cardTitle}>Listing Type</Text>
             <Text style={styles.cardSub}>
-              OFFERING SOMETHING OR LOOKING FOR SOMETHING?
+              Are you offering something or looking for something?
             </Text>
+
             <View style={styles.toggleRow}>
               <TouchableOpacity
                 style={[
@@ -168,6 +184,7 @@ export default function PostBountyScreen() {
                   <Text style={styles.toggleText}>📦 I'm Offering</Text>
                 )}
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
                   styles.toggleBtn,
@@ -183,18 +200,17 @@ export default function PostBountyScreen() {
                     style={styles.toggleGradient}
                   >
                     <Text style={styles.toggleTextActive}>
-                      🔍 I'm Requesting
+                      🔍 I'm Looking
                     </Text>
                   </LinearGradient>
                 ) : (
-                  <Text style={styles.toggleText}>🔍 I'm Requesting</Text>
+                  <Text style={styles.toggleText}>🔍 I'm Looking</Text>
                 )}
               </TouchableOpacity>
             </View>
 
-            {/* ITEM or SERVICE */}
             <Text style={[styles.label, { marginTop: 16 }]}>
-              CLASSIFICATION
+              ITEM OR SERVICE?
             </Text>
             <View style={styles.toggleRow}>
               <TouchableOpacity
@@ -211,12 +227,15 @@ export default function PostBountyScreen() {
                     end={{ x: 1, y: 0 }}
                     style={styles.toggleGradient}
                   >
-                    <Text style={styles.toggleTextActive}>📦 Item/Good</Text>
+                    <Text style={styles.toggleTextActive}>
+                      📦 Physical Item
+                    </Text>
                   </LinearGradient>
                 ) : (
-                  <Text style={styles.toggleText}>📦 Item/Good</Text>
+                  <Text style={styles.toggleText}>📦 Physical Item</Text>
                 )}
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={[
                   styles.toggleBtn,
@@ -232,11 +251,11 @@ export default function PostBountyScreen() {
                     style={styles.toggleGradient}
                   >
                     <Text style={styles.toggleTextActive}>
-                      🛠️ Service/Skill
+                      🛠️ Service / Skill
                     </Text>
                   </LinearGradient>
                 ) : (
-                  <Text style={styles.toggleText}>🛠️ Service/Skill</Text>
+                  <Text style={styles.toggleText}>🛠️ Service / Skill</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -244,8 +263,10 @@ export default function PostBountyScreen() {
 
           {/* DETAILS CARD */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>LISTING DETAILS</Text>
-            <Text style={styles.cardSub}>TELL NEIGHBORS WHAT YOU HAVE</Text>
+            <Text style={styles.cardTitle}>Listing Details</Text>
+            <Text style={styles.cardSub}>
+              Be clear and honest — good descriptions get more responses.
+            </Text>
 
             <Text style={styles.label}>TITLE *</Text>
             <TextInput
@@ -261,7 +282,7 @@ export default function PostBountyScreen() {
             <Text style={styles.label}>DESCRIPTION *</Text>
             <TextInput
               style={styles.textarea}
-              placeholder="Describe condition, details, what's included..."
+              placeholder="Describe condition, what's included, any details the trader needs to know..."
               placeholderTextColor="rgba(255,255,255,0.25)"
               value={description}
               onChangeText={setDescription}
@@ -285,9 +306,9 @@ export default function PostBountyScreen() {
 
           {/* CATEGORY CARD */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>CATEGORY *</Text>
+            <Text style={styles.cardTitle}>Category *</Text>
             <Text style={styles.cardSub}>
-              WHAT TYPE OF LISTING IS THIS?
+              Pick the category that best fits your listing.
             </Text>
             <View style={styles.categoryGrid}>
               {CATEGORIES.map((cat) => (
@@ -306,17 +327,13 @@ export default function PostBountyScreen() {
                       end={{ x: 1, y: 0 }}
                       style={styles.categoryChipGradient}
                     >
-                      <Text style={styles.categoryChipIconActive}>
-                        {cat.icon}
-                      </Text>
-                      <Text style={styles.categoryChipTextActive}>
-                        {cat.label}
-                      </Text>
+                      <Text style={styles.catIcon}>{cat.icon}</Text>
+                      <Text style={styles.catTextActive}>{cat.label}</Text>
                     </LinearGradient>
                   ) : (
                     <View style={styles.categoryChipInner}>
-                      <Text style={styles.categoryChipIcon}>{cat.icon}</Text>
-                      <Text style={styles.categoryChipText}>{cat.label}</Text>
+                      <Text style={styles.catIcon}>{cat.icon}</Text>
+                      <Text style={styles.catText}>{cat.label}</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -326,8 +343,10 @@ export default function PostBountyScreen() {
 
           {/* EXCHANGE TYPE CARD */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>EXCHANGE TYPE</Text>
-            <Text style={styles.cardSub}>HOW DO YOU WANT TO TRADE?</Text>
+            <Text style={styles.cardTitle}>Exchange Type</Text>
+            <Text style={styles.cardSub}>
+              How do you want to trade?
+            </Text>
             <View style={styles.exchangeGrid}>
               {EXCHANGE_TYPES.map((et) => (
                 <TouchableOpacity
@@ -364,11 +383,11 @@ export default function PostBountyScreen() {
             </View>
           </View>
 
-          {/* WHAT DO YOU WANT CARD */}
+          {/* WHAT YOU WANT CARD */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>WHAT DO YOU WANT?</Text>
+            <Text style={styles.cardTitle}>What You Want</Text>
             <Text style={styles.cardSub}>
-              TELL NEIGHBORS WHAT YOU'RE LOOKING FOR IN RETURN
+              Tell traders what you're looking for in return.
             </Text>
 
             <Text style={styles.label}>LOOKING FOR</Text>
@@ -395,6 +414,18 @@ export default function PostBountyScreen() {
             )}
           </View>
 
+          {/* HONESTY REMINDER */}
+          <View style={styles.reminderCard}>
+            <Text style={styles.reminderIcon}>⚖️</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.reminderTitle}>Be honest</Text>
+              <Text style={styles.reminderText}>
+                Misrepresenting items or services will affect your Trust
+                Score and may result in an account review.
+              </Text>
+            </View>
+          </View>
+
           {/* POST BUTTON */}
           <TouchableOpacity
             style={styles.postBtn}
@@ -412,14 +443,14 @@ export default function PostBountyScreen() {
                 <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.postBtnText}>
-                  🚀 POST TO THE VILLAGE
+                  🚀 Post Listing
                 </Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
           <Text style={styles.footer}>
-            Your listing will be visible to all neighbors immediately.
+            Your listing goes live immediately after posting.
           </Text>
 
         </ScrollView>
@@ -430,27 +461,18 @@ export default function PostBountyScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 60,
-  },
+  scroll: { paddingHorizontal: 20, paddingBottom: 60 },
 
   orb: { position: 'absolute', borderRadius: 9999 },
   orb1: {
-    width: 280,
-    height: 280,
-    backgroundColor: '#7C3AED',
-    opacity: 0.1,
-    top: -80,
-    right: -80,
+    width: 280, height: 280,
+    backgroundColor: '#7C3AED', opacity: 0.1,
+    top: -80, right: -80,
   },
   orb2: {
-    width: 200,
-    height: 200,
-    backgroundColor: '#FF2D78',
-    opacity: 0.06,
-    bottom: 200,
-    left: -60,
+    width: 200, height: 200,
+    backgroundColor: '#FF2D78', opacity: 0.06,
+    bottom: 200, left: -60,
   },
 
   // HEADER
@@ -458,22 +480,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 20, paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   backBtn: { width: 60 },
   backText: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 14, fontWeight: '500',
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.3,
+    fontSize: 17, fontWeight: '800',
+    color: '#fff', letterSpacing: -0.3,
   },
 
   // CARD
@@ -481,86 +499,63 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 20, padding: 20,
     marginTop: 16,
   },
   cardTitle: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: '#A78BFA',
-    letterSpacing: 1,
+    fontSize: 18, fontWeight: '900',
+    color: '#fff', letterSpacing: -0.3,
     marginBottom: 4,
   },
   cardSub: {
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.25)',
-    letterSpacing: 1.5,
-    marginBottom: 16,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.35)',
+    marginBottom: 16, lineHeight: 19,
   },
 
-  // TOGGLE
-  toggleRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
+  // TOGGLES
+  toggleRow: { flexDirection: 'row', gap: 10 },
   toggleBtn: {
-    flex: 1,
-    borderRadius: 12,
+    flex: 1, borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  toggleBtnActive: {
-    borderColor: 'transparent',
-  },
+  toggleBtnActive: { borderColor: 'transparent' },
   toggleGradient: {
-    padding: 14,
-    alignItems: 'center',
-    borderRadius: 12,
+    padding: 14, alignItems: 'center', borderRadius: 12,
   },
   toggleText: {
-    padding: 14,
-    textAlign: 'center',
+    padding: 14, textAlign: 'center',
     color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 13, fontWeight: '600',
   },
   toggleTextActive: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '700',
+    color: '#fff', fontSize: 13, fontWeight: '700',
   },
 
   // INPUTS
   label: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 10, fontWeight: '700',
     color: 'rgba(255,255,255,0.35)',
-    letterSpacing: 1.5,
-    marginBottom: 8,
-    marginTop: 12,
+    letterSpacing: 1.5, marginBottom: 8, marginTop: 12,
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#fff',
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 15, color: '#fff',
   },
   textarea: {
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#fff',
+    paddingHorizontal: 14, paddingVertical: 14,
+    fontSize: 15, color: '#fff',
     minHeight: 110,
     textAlignVertical: 'top',
   },
@@ -568,78 +563,55 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(255,255,255,0.2)',
     textAlign: 'right',
-    marginTop: 4,
-    marginBottom: 4,
-    letterSpacing: 0.5,
+    marginTop: 4, marginBottom: 4,
   },
 
   // CATEGORIES
   categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
   },
   categoryChip: {
-    borderRadius: 10,
-    overflow: 'hidden',
+    borderRadius: 10, overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  categoryChipActive: {
-    borderColor: 'transparent',
-  },
+  categoryChipActive: { borderColor: 'transparent' },
   categoryChipGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
+    flexDirection: 'row', alignItems: 'center',
+    gap: 6, paddingHorizontal: 12,
+    paddingVertical: 8, borderRadius: 10,
   },
   categoryChipInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center',
+    gap: 6, paddingHorizontal: 12, paddingVertical: 8,
   },
-  categoryChipIcon: { fontSize: 14 },
-  categoryChipIconActive: { fontSize: 14 },
-  categoryChipText: {
+  catIcon: { fontSize: 14 },
+  catText: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.4)',
     fontWeight: '600',
   },
-  categoryChipTextActive: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '700',
+  catTextActive: {
+    fontSize: 12, color: '#fff', fontWeight: '700',
   },
 
   // EXCHANGE TYPES
   exchangeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
   },
   exchangeCard: {
     width: (width - 80) / 2,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 14,
-    padding: 16,
-    overflow: 'hidden',
-    position: 'relative',
+    borderRadius: 14, padding: 16,
+    overflow: 'hidden', position: 'relative',
   },
-  exchangeCardActive: {
-    borderColor: 'transparent',
-  },
+  exchangeCardActive: { borderColor: 'transparent' },
   exchangeIcon: { fontSize: 24, marginBottom: 8 },
   exchangeLabel: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 13, fontWeight: '800',
     color: 'rgba(255,255,255,0.6)',
     marginBottom: 4,
   },
@@ -651,30 +623,44 @@ const styles = StyleSheet.create({
   },
   exchangeDescActive: { color: 'rgba(255,255,255,0.7)' },
 
+  // REMINDER
+  reminderCard: {
+    flexDirection: 'row', gap: 12,
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255,209,102,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,209,102,0.15)',
+    borderRadius: 14, padding: 14,
+    marginTop: 16,
+  },
+  reminderIcon: { fontSize: 20 },
+  reminderTitle: {
+    fontSize: 13, fontWeight: '800',
+    color: '#FFD166', marginBottom: 4,
+  },
+  reminderText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
+    lineHeight: 18,
+  },
+
   // POST BUTTON
   postBtn: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginTop: 24,
-    marginBottom: 12,
+    borderRadius: 14, overflow: 'hidden',
+    marginTop: 24, marginBottom: 12,
   },
   postBtnGradient: {
-    padding: 18,
-    alignItems: 'center',
-    borderRadius: 14,
-    minHeight: 56,
+    padding: 18, alignItems: 'center',
+    borderRadius: 14, minHeight: 56,
     justifyContent: 'center',
   },
   postBtnText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+    color: '#fff', fontSize: 16,
+    fontWeight: '800', letterSpacing: 0.3,
   },
 
   footer: {
-    textAlign: 'center',
-    fontSize: 12,
+    textAlign: 'center', fontSize: 12,
     color: 'rgba(255,255,255,0.2)',
     marginBottom: 20,
   },

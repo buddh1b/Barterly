@@ -10,8 +10,7 @@ import {
   GoogleAuthProvider,
   signInWithCredential,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { auth } from '../firebase/config';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,15 +19,9 @@ import * as Google from 'expo-auth-session/providers/google';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 const IOS_CLIENT_ID = '791045231240-df1lie133qlqv6vidr40ogh95k2g4hkd.apps.googleusercontent.com';
 const WEB_CLIENT_ID = '791045231240-lr6uou7n4c5srll39m6ovngrdbtremrc.apps.googleusercontent.com';
-
-const GLASS = {
-  backgroundColor: 'rgba(255,255,255,0.06)',
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.1)',
-};
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
@@ -36,7 +29,9 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'not_found' | 'found'>('idle');
+  const [emailStatus, setEmailStatus] = useState
+    'idle' | 'not_found' | 'found'
+  >('idle');
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: IOS_CLIENT_ID,
@@ -56,6 +51,7 @@ export default function LoginScreen() {
       const { id_token } = response.params;
       const credential = GoogleAuthProvider.credential(id_token);
       await signInWithCredential(auth, credential);
+      // App.tsx handles redirect based on profile existence
     } catch (error: any) {
       Alert.alert('Google Sign-in Error', error.message);
     } finally {
@@ -63,8 +59,10 @@ export default function LoginScreen() {
     }
   };
 
-  const handleMagicKey = async () => {
-    if (!email) return Alert.alert('Missing email', 'Please enter your email.');
+  const handleSignInLink = async () => {
+    if (!email) {
+      return Alert.alert('Missing email', 'Please enter your email address.');
+    }
     setLoading(true);
     try {
       const methods = await fetchSignInMethodsForEmail(auth, email);
@@ -78,7 +76,11 @@ export default function LoginScreen() {
         url: 'https://barterly-64865398-4cda8.firebaseapp.com/login/verify',
         handleCodeInApp: true,
         iOS: { bundleId: 'com.barterly.app' },
-        android: { packageName: 'com.barterly.app', installApp: true, minimumVersion: '12' },
+        android: {
+          packageName: 'com.barterly.app',
+          installApp: true,
+          minimumVersion: '12',
+        },
       });
       setSent(true);
     } catch (error: any) {
@@ -118,27 +120,30 @@ export default function LoginScreen() {
             <View style={styles.header}>
               <LinearGradient
                 colors={['#7C3AED', '#FF2D78']}
-                style={styles.keyIcon}
+                style={styles.headerIcon}
               >
-                <Text style={{ fontSize: 32 }}>🗝️</Text>
+                <Text style={{ fontSize: 32 }}>🔐</Text>
               </LinearGradient>
               <Text style={styles.title}>Welcome back.</Text>
               <Text style={styles.subtitle}>
-                Enter your neighborhood gate.
+                Sign in to your Barterly account.
               </Text>
             </View>
 
-            {/* CARD */}
+            {/* MAIN CARD */}
             <View style={styles.card}>
               {sent ? (
                 // SENT STATE
                 <View style={styles.sentBox}>
-                  <Text style={{ fontSize: 52, marginBottom: 16 }}>📬</Text>
-                  <Text style={styles.sentTitle}>Magic Key Sent!</Text>
+                  <Text style={{ fontSize: 52, marginBottom: 16 }}>
+                    📬
+                  </Text>
+                  <Text style={styles.sentTitle}>Sign-in Link Sent!</Text>
                   <Text style={styles.sentSub}>
                     Check your inbox at{'\n'}
                     <Text style={styles.sentEmail}>{email}</Text>
-                    {'\n\n'}Click the link to enter.
+                    {'\n\n'}
+                    Click the link in the email to sign in.
                   </Text>
                   <TouchableOpacity
                     style={styles.resetBtn}
@@ -148,12 +153,14 @@ export default function LoginScreen() {
                       setEmail('');
                     }}
                   >
-                    <Text style={styles.resetText}>Use different email</Text>
+                    <Text style={styles.resetText}>
+                      Use a different email
+                    </Text>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <>
-                  {/* GOOGLE */}
+                  {/* GOOGLE SIGN IN */}
                   <TouchableOpacity
                     style={styles.googleBtn}
                     onPress={() => promptAsync()}
@@ -179,8 +186,8 @@ export default function LoginScreen() {
                     <View style={styles.dividerLine} />
                   </View>
 
-                  {/* EMAIL */}
-                  <Text style={styles.label}>MAGIC KEY VIA EMAIL</Text>
+                  {/* EMAIL INPUT */}
+                  <Text style={styles.label}>EMAIL ADDRESS</Text>
                   <View style={[
                     styles.inputWrapper,
                     emailStatus === 'not_found' && styles.inputError,
@@ -200,49 +207,54 @@ export default function LoginScreen() {
                     />
                   </View>
 
-                  {/* NO PORCH FOUND */}
+                  {/* NOT FOUND MESSAGE */}
                   {emailStatus === 'not_found' && (
-                    <View style={styles.noPorchBox}>
-                      <Text style={styles.noPorchIcon}>🏚️</Text>
-                      <Text style={styles.noPorchTitle}>
+                    <View style={styles.notFoundBox}>
+                      <Text style={styles.notFoundIcon}>🔍</Text>
+                      <Text style={styles.notFoundTitle}>
                         No account found
                       </Text>
-                      <Text style={styles.noPorchDesc}>
-                        This email isn't registered yet.
+                      <Text style={styles.notFoundDesc}>
+                        This email isn't registered yet.{'\n'}
+                        Create a free account to start trading.
                       </Text>
                       <TouchableOpacity
-                        style={styles.joinBtn}
                         onPress={() => navigation.navigate('Register')}
                       >
                         <LinearGradient
                           colors={['#7C3AED', '#FF2D78']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
-                          style={styles.joinBtnGradient}
+                          style={styles.notFoundBtn}
                         >
-                          <Text style={styles.joinBtnText}>
-                            Join the Village →
+                          <Text style={styles.notFoundBtnText}>
+                            Create Account →
                           </Text>
                         </LinearGradient>
                       </TouchableOpacity>
                     </View>
                   )}
 
-                  {/* SEND BUTTON */}
+                  {/* SEND LINK BUTTON */}
                   <TouchableOpacity
                     style={styles.sendBtn}
-                    onPress={handleMagicKey}
+                    onPress={handleSignInLink}
                     disabled={loading}
                     activeOpacity={0.85}
                   >
                     {loading ? (
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator color="#A78BFA" />
                     ) : (
                       <Text style={styles.sendBtnText}>
-                        Send My Magic Key
+                        Send Sign-in Link
                       </Text>
                     )}
                   </TouchableOpacity>
+
+                  <Text style={styles.sendBtnHint}>
+                    We'll email you a secure link to sign in instantly.
+                    No password needed.
+                  </Text>
                 </>
               )}
 
@@ -252,17 +264,22 @@ export default function LoginScreen() {
                 onPress={() => navigation.navigate('Register')}
               >
                 <Text style={styles.registerLinkText}>
-                  New here?{' '}
+                  New to Barterly?{' '}
                   <Text style={styles.registerLinkAccent}>
-                    Create an account →
+                    Create a free account →
                   </Text>
                 </Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.footer}>
-              SOVEREIGN OS V1.0 · ACCESS NODE
-            </Text>
+            {/* SECURITY NOTE */}
+            <View style={styles.securityNote}>
+              <Text style={styles.securityIcon}>🔒</Text>
+              <Text style={styles.securityText}>
+                Your data is encrypted and never shared with third parties.
+              </Text>
+            </View>
+
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -280,58 +297,53 @@ const styles = StyleSheet.create({
 
   orb: { position: 'absolute', borderRadius: 9999 },
   orb1: {
-    width: 280,
-    height: 280,
+    width: 280, height: 280,
     backgroundColor: '#7C3AED',
     opacity: 0.12,
-    top: -80,
-    right: -80,
+    top: -80, right: -80,
   },
   orb2: {
-    width: 200,
-    height: 200,
+    width: 200, height: 200,
     backgroundColor: '#FF2D78',
     opacity: 0.08,
-    bottom: 100,
-    left: -60,
+    bottom: 100, left: -60,
   },
 
   backBtn: { paddingTop: 16, paddingBottom: 8 },
   backText: {
     color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 14, fontWeight: '500',
   },
 
+  // HEADER
   header: { alignItems: 'center', paddingVertical: 32 },
-  keyIcon: {
-    width: 80,
-    height: 80,
+  headerIcon: {
+    width: 80, height: 80,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#fff',
-    letterSpacing: -0.8,
+    fontSize: 32, fontWeight: '900',
+    color: '#fff', letterSpacing: -0.8,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 15,
     color: 'rgba(255,255,255,0.4)',
     fontWeight: '300',
+    textAlign: 'center',
   },
 
+  // CARD
   card: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 24,
     padding: 24,
-    marginBottom: 24,
+    marginBottom: 16,
   },
 
   // GOOGLE
@@ -348,14 +360,10 @@ const styles = StyleSheet.create({
     minHeight: 52,
   },
   googleG: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#4285F4',
+    fontSize: 18, fontWeight: '900', color: '#4285F4',
   },
   googleText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
+    fontSize: 15, fontWeight: '600', color: '#fff',
   },
 
   // DIVIDER
@@ -365,23 +373,19 @@ const styles = StyleSheet.create({
     marginVertical: 20,
   },
   dividerLine: {
-    flex: 1,
-    height: 1,
+    flex: 1, height: 1,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   dividerText: {
     marginHorizontal: 12,
     color: 'rgba(255,255,255,0.3)',
-    fontSize: 11,
-    letterSpacing: 2,
+    fontSize: 11, letterSpacing: 2,
   },
 
-  // EMAIL INPUT
+  // INPUT
   label: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#7C3AED',
-    letterSpacing: 2,
+    fontSize: 10, fontWeight: '700',
+    color: '#7C3AED', letterSpacing: 2,
     marginBottom: 10,
   },
   inputWrapper: {
@@ -397,14 +401,12 @@ const styles = StyleSheet.create({
   inputError: { borderColor: '#FF2D78' },
   inputIcon: { fontSize: 16, marginRight: 10, opacity: 0.5 },
   input: {
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 15,
-    color: '#fff',
+    flex: 1, paddingVertical: 16,
+    fontSize: 15, color: '#fff',
   },
 
-  // NO PORCH
-  noPorchBox: {
+  // NOT FOUND
+  notFoundBox: {
     backgroundColor: 'rgba(255,45,120,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,45,120,0.2)',
@@ -413,54 +415,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  noPorchIcon: { fontSize: 32, marginBottom: 8 },
-  noPorchTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FF2D78',
-    marginBottom: 6,
+  notFoundIcon: { fontSize: 32, marginBottom: 8 },
+  notFoundTitle: {
+    fontSize: 16, fontWeight: '800',
+    color: '#FF2D78', marginBottom: 8,
   },
-  noPorchDesc: {
+  notFoundDesc: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
+    lineHeight: 20,
     marginBottom: 16,
   },
-  joinBtn: { borderRadius: 10, overflow: 'hidden', width: '100%' },
-  joinBtnGradient: {
-    padding: 12,
-    alignItems: 'center',
+  notFoundBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 10,
   },
-  joinBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
+  notFoundBtnText: {
+    color: '#fff', fontWeight: '700', fontSize: 14,
   },
 
   // SEND BUTTON
   sendBtn: {
-    backgroundColor: 'rgba(124,58,237,0.2)',
+    backgroundColor: 'rgba(124,58,237,0.15)',
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.4)',
+    borderColor: 'rgba(124,58,237,0.3)',
     borderRadius: 14,
     padding: 16,
     alignItems: 'center',
     minHeight: 52,
+    justifyContent: 'center',
   },
   sendBtnText: {
-    color: '#A78BFA',
-    fontSize: 15,
-    fontWeight: '700',
+    color: '#A78BFA', fontSize: 15, fontWeight: '700',
+  },
+  sendBtnHint: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.25)',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 18,
   },
 
   // SENT STATE
   sentBox: { alignItems: 'center', paddingVertical: 16 },
   sentTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#7C3AED',
-    marginBottom: 12,
+    fontSize: 22, fontWeight: '900',
+    color: '#7C3AED', marginBottom: 12,
   },
   sentSub: {
     fontSize: 14,
@@ -475,15 +477,25 @@ const styles = StyleSheet.create({
   // REGISTER LINK
   registerLink: { alignItems: 'center', marginTop: 20 },
   registerLinkText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.3)',
+    fontSize: 14, color: 'rgba(255,255,255,0.3)',
   },
   registerLinkAccent: { color: '#7C3AED', fontWeight: '700' },
 
-  footer: {
-    textAlign: 'center',
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.15)',
-    letterSpacing: 1.5,
+  // SECURITY
+  securityNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 14,
+  },
+  securityIcon: { fontSize: 16 },
+  securityText: {
+    flex: 1, fontSize: 12,
+    color: 'rgba(255,255,255,0.25)',
+    lineHeight: 18,
   },
 });

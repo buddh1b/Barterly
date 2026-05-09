@@ -1,10 +1,10 @@
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  ScrollView, Dimensions, Animated, useEffect,
+  ScrollView, Dimensions, Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRef, useEffect as UseEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
@@ -19,13 +19,13 @@ const FEATURES = [
   {
     icon: '💵',
     title: 'Cash + Trade',
-    desc: 'Combine cash with goods to balance any unequal trade perfectly.',
+    desc: 'Combine cash with goods to balance any unequal trade.',
     color: '#00D4FF',
   },
   {
     icon: '🛠️',
     title: 'Skill Swaps',
-    desc: 'Trade your expertise for goods or other services. Time is currency.',
+    desc: 'Trade your expertise for goods or other services.',
     color: '#FF2D78',
   },
   {
@@ -34,20 +34,62 @@ const FEATURES = [
     desc: 'Our AI finds chain trades that humans could never discover alone.',
     color: '#00FFB2',
   },
+  {
+    icon: '⚖️',
+    title: 'Dispute Panel',
+    desc: 'Community-elected members resolve disputes fairly and transparently.',
+    color: '#FFD166',
+  },
+  {
+    icon: '🏅',
+    title: 'Trust System',
+    desc: 'Scores built from real reviews. Zero trades = zero score. Earn it.',
+    color: '#FF8C42',
+  },
 ];
 
 const LIVE_TRADES = [
-  { emoji: '🎸', title: 'Fender Guitar', wants: 'Road bike', user: '@marina', score: 97, type: 'TRADE' },
-  { emoji: '💻', title: 'MacBook Pro M3', wants: 'Camera + $200', user: '@devdude', score: 94, type: 'HYBRID' },
-  { emoji: '🔧', title: 'Plumbing Service', wants: 'Logo design', user: '@fixpro', score: 91, type: 'SERVICE' },
+  {
+    emoji: '🎸',
+    title: 'Fender Guitar 1998',
+    wants: 'Road bike or camera',
+    user: '@marina_k',
+    trades: 12,
+    type: 'TRADE',
+  },
+  {
+    emoji: '💻',
+    title: 'MacBook Pro M3',
+    wants: 'DSLR + $200',
+    user: '@devdude',
+    trades: 8,
+    type: 'HYBRID',
+  },
+  {
+    emoji: '🔧',
+    title: 'Plumbing Service',
+    wants: 'Logo design',
+    user: '@fixpro',
+    trades: 31,
+    type: 'SERVICE',
+  },
 ];
+
+// Helper for trust label
+const getTrustLabel = (trades: number) => {
+  if (trades === 0) return 'No trades yet';
+  if (trades <= 5) return 'New Trader';
+  if (trades <= 20) return 'Rising Trader';
+  if (trades <= 50) return 'Trusted Trader';
+  return 'Top Trader';
+};
 
 export default function LandingScreen() {
   const navigation = useNavigation<any>();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(40)).current;
 
-  UseEffect(() => {
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -88,28 +130,43 @@ export default function LandingScreen() {
               </LinearGradient>
               <Text style={styles.logoText}>Barterly</Text>
             </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Login')}
+              style={styles.navLoginBtn}
+            >
+              <Text style={styles.navLoginText}>Sign In</Text>
+            </TouchableOpacity>
           </View>
 
           {/* HERO */}
           <Animated.View
             style={[
               styles.hero,
-              { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
           >
             <View style={styles.badge}>
               <View style={styles.badgeDot} />
-              <Text style={styles.badgeText}>THE MODERN EXCHANGE PLATFORM</Text>
+              <Text style={styles.badgeText}>
+                THE MODERN EXCHANGE PLATFORM
+              </Text>
             </View>
 
             <Text style={styles.heroTitle}>
               Trade goods.{'\n'}
               Share skills.{'\n'}
-              <Text style={styles.heroAccent}>Skip the{'\n'}middleman.</Text>
+              <Text style={styles.heroAccent}>
+                Skip the{'\n'}middleman.
+              </Text>
             </Text>
 
             <Text style={styles.heroSub}>
-              Peer-to-peer exchange for goods, services, and skills. Fair value. Real community. Zero fees.
+              Barterly is a peer-to-peer exchange platform where you trade
+              what you have for what you need. Goods, services, skills, or
+              cash. Free forever. No platform fees.
             </Text>
 
             <TouchableOpacity
@@ -123,7 +180,9 @@ export default function LandingScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryBtnGradient}
               >
-                <Text style={styles.primaryBtnText}>Start Trading Free →</Text>
+                <Text style={styles.primaryBtnText}>
+                  Start Trading Free →
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
 
@@ -132,20 +191,21 @@ export default function LandingScreen() {
               onPress={() => navigation.navigate('Login')}
             >
               <Text style={styles.secondaryBtnText}>
-                Already trading?{' '}
+                Already a trader?{' '}
                 <Text style={styles.secondaryBtnAccent}>Sign in</Text>
               </Text>
             </TouchableOpacity>
           </Animated.View>
 
-          {/* LIVE TRADE CARDS */}
-          <View style={styles.liveSection}>
+          {/* LIVE TRADES */}
+          <View style={styles.section}>
             <View style={styles.liveBadge}>
               <View style={styles.liveDot} />
               <Text style={styles.liveText}>LIVE TRADES</Text>
             </View>
+
             {LIVE_TRADES.map((trade, i) => (
-              <View key={i} style={styles.glassCard}>
+              <View key={i} style={styles.tradeCard}>
                 <View style={styles.tradeCardTop}>
                   <View style={styles.tradeEmoji}>
                     <Text style={{ fontSize: 24 }}>{trade.emoji}</Text>
@@ -162,7 +222,9 @@ export default function LandingScreen() {
                 </View>
                 <View style={styles.tradeFooter}>
                   <Text style={styles.tradeUser}>{trade.user}</Text>
-                  <Text style={styles.tradeScore}>✦ {trade.score}</Text>
+                  <Text style={styles.tradeTrust}>
+                    {getTrustLabel(trade.trades)}
+                  </Text>
                 </View>
               </View>
             ))}
@@ -174,7 +236,7 @@ export default function LandingScreen() {
               { n: '24K+', l: 'Traders' },
               { n: '$2.4M', l: 'Exchanged' },
               { n: '0%', l: 'Fees' },
-              { n: '98%', l: 'Satisfied' },
+              { n: '∞', l: 'Trades' },
             ].map((s, i) => (
               <View key={i} style={styles.statItem}>
                 <Text style={styles.statNumber}>{s.n}</Text>
@@ -184,12 +246,17 @@ export default function LandingScreen() {
           </View>
 
           {/* FEATURES */}
-          <View style={styles.featuresSection}>
+          <View style={styles.section}>
             <Text style={styles.sectionLabel}>WHY BARTERLY</Text>
-            <Text style={styles.sectionTitle}>Six ways to exchange.</Text>
+            <Text style={styles.sectionTitle}>
+              Everything you need to trade.
+            </Text>
             {FEATURES.map((f, i) => (
               <View key={i} style={styles.featureCard}>
-                <View style={[styles.featureIconBox, { backgroundColor: f.color + '22' }]}>
+                <View style={[
+                  styles.featureIconBox,
+                  { backgroundColor: f.color + '22' },
+                ]}>
                   <Text style={{ fontSize: 22 }}>{f.icon}</Text>
                 </View>
                 <View style={styles.featureText}>
@@ -200,21 +267,81 @@ export default function LandingScreen() {
             ))}
           </View>
 
-          {/* TRUST */}
-          <View style={styles.trustSection}>
-            <Text style={styles.sectionLabel}>TRUST & SAFETY</Text>
-            <Text style={styles.sectionTitle}>A community that keeps itself honest.</Text>
-            <View style={styles.trustGrid}>
+          {/* HOW IT WORKS */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>HOW IT WORKS</Text>
+            <Text style={styles.sectionTitle}>Simple as a handshake.</Text>
+            {[
+              {
+                n: '01',
+                icon: '📦',
+                title: 'Post Your Listing',
+                desc: 'List what you have with photos and a description. Set your exchange type.',
+              },
+              {
+                n: '02',
+                icon: '🔍',
+                title: 'Browse & Match',
+                desc: 'Search listings or let AI suggest matches based on what you need.',
+              },
+              {
+                n: '03',
+                icon: '💬',
+                title: 'Negotiate',
+                desc: 'Chat and agree on terms. Counter-offer, add cash, suggest alternatives.',
+              },
+              {
+                n: '04',
+                icon: '✅',
+                title: 'Complete & Review',
+                desc: 'Finish the trade, leave an honest review. Build your Trust Score.',
+              },
+            ].map((step, i) => (
+              <View key={i} style={styles.stepCard}>
+                <LinearGradient
+                  colors={['#7C3AED', '#FF2D78']}
+                  style={styles.stepNumber}
+                >
+                  <Text style={styles.stepNumberText}>{step.n}</Text>
+                </LinearGradient>
+                <View style={styles.stepContent}>
+                  <Text style={styles.stepIcon}>{step.icon}</Text>
+                  <Text style={styles.stepTitle}>{step.title}</Text>
+                  <Text style={styles.stepDesc}>{step.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* TRUST SECTION */}
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>TRUST SYSTEM</Text>
+            <Text style={styles.sectionTitle}>
+              Earn your reputation.
+            </Text>
+            <Text style={styles.sectionSub}>
+              Every trader starts at zero. Your Trust Score is built
+              entirely from real reviews after completed trades.
+              No shortcuts. No fake scores.
+            </Text>
+            <View style={styles.trustLevels}>
               {[
-                { icon: '⚖️', title: 'Community Jury', desc: 'Disputes resolved by elected neighbors, not bots.' },
-                { icon: '🔒', title: 'Accountability', desc: 'Ghost a deal? Restricted until resolved.' },
-                { icon: '🏅', title: 'Trust Score', desc: 'Your reputation, built trade by trade.' },
-                { icon: '🛡️', title: 'Verified Listings', desc: 'Community-reviewed before going live.' },
-              ].map((t, i) => (
-                <View key={i} style={styles.trustCard}>
-                  <Text style={{ fontSize: 24, marginBottom: 8 }}>{t.icon}</Text>
-                  <Text style={styles.trustCardTitle}>{t.title}</Text>
-                  <Text style={styles.trustCardDesc}>{t.desc}</Text>
+                { icon: '🌱', label: 'New Trader', range: '1-5 trades', color: '#00D4FF' },
+                { icon: '⭐', label: 'Rising Trader', range: '6-20 trades', color: '#7C3AED' },
+                { icon: '🏅', label: 'Trusted Trader', range: '21-50 trades', color: '#00FFB2' },
+                { icon: '👑', label: 'Top Trader', range: '51+ trades', color: '#FFD166' },
+              ].map((level, i) => (
+                <View key={i} style={styles.trustLevel}>
+                  <Text style={styles.trustLevelIcon}>{level.icon}</Text>
+                  <View style={styles.trustLevelInfo}>
+                    <Text style={[
+                      styles.trustLevelLabel,
+                      { color: level.color },
+                    ]}>
+                      {level.label}
+                    </Text>
+                    <Text style={styles.trustLevelRange}>{level.range}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -227,7 +354,8 @@ export default function LandingScreen() {
               <Text style={styles.ctaAccent}>smarter?</Text>
             </Text>
             <Text style={styles.ctaSub}>
-              Join 24,800+ traders already exchanging — commission free, community powered.
+              Join thousands of traders already exchanging — free forever,
+              community powered.
             </Text>
             <TouchableOpacity
               style={styles.primaryBtn}
@@ -240,14 +368,33 @@ export default function LandingScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.primaryBtnGradient}
               >
-                <Text style={styles.primaryBtnText}>Join the Village →</Text>
+                <Text style={styles.primaryBtnText}>
+                  Join Barterly Free →
+                </Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
 
           {/* FOOTER */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>© 2026 Barterly · Trade fair, trade free</Text>
+            <View style={styles.footerLogoRow}>
+              <LinearGradient
+                colors={['#7C3AED', '#FF2D78']}
+                style={styles.footerLogoMark}
+              >
+                <Text style={styles.logoMarkText}>B</Text>
+              </LinearGradient>
+              <Text style={styles.footerLogoText}>Barterly</Text>
+            </View>
+            <View style={styles.footerLinks}>
+              <Text style={styles.footerLink}>How it Works</Text>
+              <Text style={styles.footerLink}>Trust System</Text>
+              <Text style={styles.footerLink}>Dispute Panel</Text>
+              <Text style={styles.footerLink}>Privacy</Text>
+            </View>
+            <Text style={styles.footerCopy}>
+              © 2026 Barterly · Trade fair, trade free
+            </Text>
           </View>
 
         </ScrollView>
@@ -256,44 +403,29 @@ export default function LandingScreen() {
   );
 }
 
-const GLASS = {
-  backgroundColor: 'rgba(255,255,255,0.06)',
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.1)',
-};
-
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { paddingBottom: 40 },
 
   // ORBS
-  orb: {
-    position: 'absolute',
-    borderRadius: 9999,
-    opacity: 0.15,
-  },
+  orb: { position: 'absolute', borderRadius: 9999 },
   orb1: {
-    width: 300,
-    height: 300,
+    width: 300, height: 300,
     backgroundColor: '#7C3AED',
-    top: -100,
-    right: -80,
-    transform: [{ scale: 1.2 }],
+    opacity: 0.12,
+    top: -100, right: -80,
   },
   orb2: {
-    width: 200,
-    height: 200,
+    width: 200, height: 200,
     backgroundColor: '#00D4FF',
-    top: height * 0.4,
-    left: -60,
+    opacity: 0.07,
+    top: height * 0.4, left: -60,
   },
   orb3: {
-    width: 250,
-    height: 250,
+    width: 250, height: 250,
     backgroundColor: '#FF2D78',
-    bottom: 100,
-    right: -60,
-    opacity: 0.1,
+    opacity: 0.06,
+    bottom: 100, right: -60,
   },
 
   // NAV
@@ -307,18 +439,26 @@ const styles = StyleSheet.create({
   },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoMark: {
-    width: 36,
-    height: 36,
+    width: 36, height: 36,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoMarkText: { color: '#fff', fontWeight: '900', fontSize: 18 },
   logoText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.5,
+    fontSize: 20, fontWeight: '800',
+    color: '#fff', letterSpacing: -0.5,
+  },
+  navLoginBtn: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  navLoginText: {
+    color: '#fff', fontSize: 13, fontWeight: '600',
   },
 
   // HERO
@@ -341,73 +481,74 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   badgeDot: {
-    width: 6,
-    height: 6,
+    width: 6, height: 6,
     backgroundColor: '#7C3AED',
     borderRadius: 3,
   },
   badgeText: {
-    fontSize: 10,
-    color: '#A78BFA',
-    fontWeight: '600',
-    letterSpacing: 0.8,
+    fontSize: 10, color: '#A78BFA',
+    fontWeight: '600', letterSpacing: 0.8,
   },
   heroTitle: {
-    fontSize: 44,
-    fontWeight: '900',
-    color: '#fff',
-    lineHeight: 50,
-    letterSpacing: -1,
-    marginBottom: 20,
+    fontSize: 44, fontWeight: '900',
+    color: '#fff', lineHeight: 50,
+    letterSpacing: -1, marginBottom: 20,
   },
   heroAccent: { color: '#7C3AED' },
   heroSub: {
-    fontSize: 15,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 23,
-    marginBottom: 32,
-    fontWeight: '300',
+    fontSize: 15, color: 'rgba(255,255,255,0.5)',
+    lineHeight: 23, marginBottom: 32, fontWeight: '300',
   },
 
   // BUTTONS
   primaryBtn: { borderRadius: 12, overflow: 'hidden', marginBottom: 16 },
   primaryBtnGradient: {
-    padding: 18,
-    alignItems: 'center',
-    borderRadius: 12,
+    padding: 18, alignItems: 'center', borderRadius: 12,
   },
   primaryBtnText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    color: '#fff', fontSize: 16,
+    fontWeight: '700', letterSpacing: 0.3,
   },
   secondaryBtn: { alignItems: 'center' },
-  secondaryBtnText: { fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  secondaryBtnText: {
+    fontSize: 14, color: 'rgba(255,255,255,0.4)',
+  },
   secondaryBtnAccent: { color: '#7C3AED', fontWeight: '700' },
 
+  // SECTION
+  section: { paddingHorizontal: 24, marginBottom: 32 },
+  sectionLabel: {
+    fontSize: 10, color: '#7C3AED',
+    fontWeight: '700', letterSpacing: 2, marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 26, fontWeight: '900',
+    color: '#fff', letterSpacing: -0.5,
+    marginBottom: 8, lineHeight: 32,
+  },
+  sectionSub: {
+    fontSize: 14, color: 'rgba(255,255,255,0.4)',
+    lineHeight: 22, marginBottom: 20, fontWeight: '300',
+  },
+
   // LIVE TRADES
-  liveSection: { paddingHorizontal: 24, marginBottom: 32 },
   liveBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
+    gap: 6, marginBottom: 16,
   },
   liveDot: {
-    width: 8,
-    height: 8,
-    backgroundColor: '#00FFB2',
-    borderRadius: 4,
+    width: 8, height: 8,
+    backgroundColor: '#00FFB2', borderRadius: 4,
   },
   liveText: {
-    fontSize: 11,
-    color: '#00FFB2',
-    fontWeight: '600',
-    letterSpacing: 1.5,
+    fontSize: 11, color: '#00FFB2',
+    fontWeight: '600', letterSpacing: 1.5,
   },
-  glassCard: {
-    ...GLASS,
+  tradeCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
@@ -419,8 +560,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   tradeEmoji: {
-    width: 44,
-    height: 44,
+    width: 44, height: 44,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 10,
     alignItems: 'center',
@@ -433,16 +573,12 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   tradeTypeText: {
-    fontSize: 10,
-    color: '#A78BFA',
-    fontWeight: '700',
-    letterSpacing: 0.5,
+    fontSize: 10, color: '#A78BFA',
+    fontWeight: '700', letterSpacing: 0.5,
   },
   tradeTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 6,
+    fontSize: 16, fontWeight: '800',
+    color: '#fff', marginBottom: 6,
     letterSpacing: -0.3,
   },
   tradeWants: {
@@ -452,7 +588,10 @@ const styles = StyleSheet.create({
   },
   tradeWantsLabel: { fontSize: 13, color: 'rgba(255,255,255,0.4)' },
   tradeWantsArrow: { fontSize: 13, color: '#7C3AED' },
-  tradeWantsValue: { fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
+  tradeWantsValue: {
+    fontSize: 13, color: 'rgba(255,255,255,0.7)',
+    fontWeight: '500',
+  },
   tradeFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -461,7 +600,9 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.06)',
   },
   tradeUser: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
-  tradeScore: { fontSize: 12, color: '#00FFB2', fontWeight: '600' },
+  tradeTrust: {
+    fontSize: 12, color: '#00FFB2', fontWeight: '600',
+  },
 
   // STATS
   statsRow: {
@@ -471,52 +612,35 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     marginHorizontal: 24,
     marginBottom: 32,
-    ...GLASS,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 16,
   },
   statItem: { alignItems: 'center' },
   statNumber: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: '#fff',
-    letterSpacing: -0.5,
+    fontSize: 22, fontWeight: '900',
+    color: '#fff', letterSpacing: -0.5,
   },
   statLabel: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.4)',
-    marginTop: 2,
-    letterSpacing: 0.3,
+    fontSize: 11, color: 'rgba(255,255,255,0.4)',
+    marginTop: 2, letterSpacing: 0.3,
   },
 
   // FEATURES
-  featuresSection: { paddingHorizontal: 24, marginBottom: 32 },
-  sectionLabel: {
-    fontSize: 10,
-    color: '#7C3AED',
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: '#fff',
-    letterSpacing: -0.5,
-    marginBottom: 20,
-    lineHeight: 32,
-  },
   featureCard: {
     flexDirection: 'row',
     gap: 14,
     alignItems: 'flex-start',
-    ...GLASS,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     borderRadius: 14,
     padding: 16,
     marginBottom: 10,
   },
   featureIconBox: {
-    width: 48,
-    height: 48,
+    width: 48, height: 48,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -524,42 +648,67 @@ const styles = StyleSheet.create({
   },
   featureText: { flex: 1 },
   featureTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 4,
+    fontSize: 15, fontWeight: '800',
+    color: '#fff', marginBottom: 4,
     letterSpacing: -0.2,
   },
   featureDesc: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13, color: 'rgba(255,255,255,0.5)',
     lineHeight: 19,
   },
 
-  // TRUST
-  trustSection: { paddingHorizontal: 24, marginBottom: 32 },
-  trustGrid: {
+  // STEPS
+  stepCard: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    gap: 14,
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  stepNumber: {
+    width: 36, height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  stepNumberText: {
+    fontSize: 11, fontWeight: '900',
+    color: '#fff', letterSpacing: 0.5,
+  },
+  stepContent: { flex: 1 },
+  stepIcon: { fontSize: 18, marginBottom: 4 },
+  stepTitle: {
+    fontSize: 15, fontWeight: '800',
+    color: '#fff', marginBottom: 4,
+  },
+  stepDesc: {
+    fontSize: 13, color: 'rgba(255,255,255,0.45)',
+    lineHeight: 19,
+  },
+
+  // TRUST LEVELS
+  trustLevels: {
     gap: 10,
     marginTop: 8,
   },
-  trustCard: {
-    ...GLASS,
-    borderRadius: 14,
-    padding: 16,
-    width: (width - 58) / 2,
+  trustLevel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    padding: 14,
   },
-  trustCardTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: 4,
+  trustLevelIcon: { fontSize: 24 },
+  trustLevelInfo: { flex: 1 },
+  trustLevelLabel: {
+    fontSize: 14, fontWeight: '800',
+    marginBottom: 2,
   },
-  trustCardDesc: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-    lineHeight: 17,
+  trustLevelRange: {
+    fontSize: 12, color: 'rgba(255,255,255,0.35)',
   },
 
   // CTA
@@ -570,29 +719,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ctaTitle: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: '#fff',
-    textAlign: 'center',
-    letterSpacing: -1,
-    marginBottom: 12,
+    fontSize: 36, fontWeight: '900',
+    color: '#fff', textAlign: 'center',
+    letterSpacing: -1, marginBottom: 12,
     lineHeight: 42,
   },
   ctaAccent: { color: '#FF2D78' },
   ctaSub: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.45)',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 28,
-    maxWidth: 300,
+    fontSize: 14, color: 'rgba(255,255,255,0.45)',
+    textAlign: 'center', lineHeight: 22,
+    marginBottom: 28, maxWidth: 300,
   },
 
   // FOOTER
-  footer: { alignItems: 'center', paddingBottom: 20 },
-  footerText: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.2)',
-    letterSpacing: 0.5,
+  footer: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+    gap: 16,
+  },
+  footerLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  footerLogoMark: {
+    width: 32, height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerLogoText: {
+    fontSize: 18, fontWeight: '800',
+    color: '#fff',
+  },
+  footerLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  footerLink: {
+    fontSize: 13, color: 'rgba(255,255,255,0.35)',
+  },
+  footerCopy: {
+    fontSize: 12, color: 'rgba(255,255,255,0.2)',
+    letterSpacing: 0.3,
   },
 });
