@@ -6,7 +6,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './src/firebase/config';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 
 import LandingScreen from './src/screens/LandingScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -44,19 +43,18 @@ export default function App() {
 
   if (loading) {
     return (
-      <LinearGradient
-        colors={['#0A0015', '#0D0A2E', '#0A1628']}
-        style={styles.loading}
-      >
+      <View style={styles.loading}>
         <ActivityIndicator size="large" color="#7C3AED" />
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
     <NavigationContainer>
       <StatusBar style="light" />
-      <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false, animation: 'fade' }}
+      >
         {user ? (
           <>
             {hasProfile ? (
@@ -67,7 +65,10 @@ export default function App() {
                 <Stack.Screen name="Profile" component={ProfileScreen} />
               </>
             ) : (
-              <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
+              <Stack.Screen
+                name="CompleteProfile"
+                component={CompleteProfileScreen}
+              />
             )}
           </>
         ) : (
@@ -87,5 +88,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0A0015',
   },
 });

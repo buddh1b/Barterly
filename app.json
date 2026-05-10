@@ -34,7 +34,9 @@
       "favicon": "./assets/favicon.png"
     },
     "scheme": "barterly",
-    "plugins": [],
+    "plugins": [
+      "expo-web-browser"
+    ],
     "extra": {
       "router": {},
       "eas": {
