@@ -10,6 +10,10 @@ export interface UserProfile {
   city: string;
   state: string;
   zipCode: string;
+  neighborhoodId?: string;
+  neighborhoodName?: string;
+  neighborhoodAddress?: string;
+  isIndividual?: boolean;
   formattedAddress: string;
   offeredSkillTagIds: string[];
   desiredSkillTagIds: string[];

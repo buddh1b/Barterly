@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, ScrollView, ActivityIndicator,
@@ -13,6 +13,7 @@ import { auth, db } from '../firebase/config';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { searchNeighborhoods } from '../services/placesService';
 
 const { width } = Dimensions.get('window');
 
@@ -49,14 +50,16 @@ const STEPS = [
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
+  const searchTimeout = useRef<any>(null);
+
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [showExistsModal, setShowExistsModal] = useState(false);
 
-  // Step 0 — account
+  // Step 0
   const [email, setEmail] = useState('');
 
-  // Step 1 — details
+  // Step 1 — personal
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -65,11 +68,37 @@ export default function RegisterScreen() {
   const [unit, setUnit] = useState('');
   const [zip, setZip] = useState('');
 
-  // Step 2 & 3 — skills
+  // Step 1 — neighborhood
+  const [neighborhoodQuery, setNeighborhoodQuery] = useState('');
+  const [neighborhoods, setNeighborhoods] = useState<any[]>([]);
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
+  const [selectedNeighborhoodData, setSelectedNeighborhoodData] =
+    useState<any>(null);
+  const [neighborhoodSearching, setNeighborhoodSearching] = useState(false);
+
+  // Step 2 & 3
   const [offeredSkills, setOfferedSkills] = useState<string[]>([]);
   const [desiredSkills, setDesiredSkills] = useState<string[]>([]);
   const [description, setDescription] = useState('');
 
+  // ── NEIGHBORHOOD SEARCH ──────────────────────────────────
+  const searchForNeighborhoods = (zipCode: string, query: string) => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    setNeighborhoodSearching(true);
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await searchNeighborhoods(zipCode, query);
+        setNeighborhoods(results);
+      } catch (error) {
+        console.log('Neighborhood search error:', error);
+        setNeighborhoods([]);
+      } finally {
+        setNeighborhoodSearching(false);
+      }
+    }, 600);
+  };
+
+  // ── SKILL TOGGLE ─────────────────────────────────────────
   const toggleSkill = (skill: string, type: 'offer' | 'desire') => {
     if (type === 'offer') {
       setOfferedSkills(prev =>
@@ -86,13 +115,14 @@ export default function RegisterScreen() {
     }
   };
 
+  // ── CHECK EMAIL ──────────────────────────────────────────
   const checkEmailAndProceed = async () => {
     if (!email) {
-      return Alert.alert('Missing Email', 'Please enter your email address.');
+      return Alert.alert('Missing Email', 'Please enter your email.');
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return Alert.alert('Invalid Email', 'Please enter a valid email.');
     }
     setLoading(true);
     try {
@@ -109,10 +139,10 @@ export default function RegisterScreen() {
     }
   };
 
+  // ── FINISH REGISTRATION ──────────────────────────────────
   const handleFinish = async () => {
     setLoading(true);
     try {
-      // Auto-generate password since users sign in via link
       const autoPassword = Math.random().toString(36).slice(-10) + 'Aa1!';
       const cred = await createUserWithEmailAndPassword(
         auth, email, autoPassword
@@ -122,18 +152,24 @@ export default function RegisterScreen() {
         firstName,
         lastName,
         displayName: displayName || `${firstName} ${lastName}`,
-        email,
-        phone,
+        email, phone,
         streetAddress: street,
         unitNumber: unit,
         zipCode: zip,
-        city: '',
-        state: '',
+        city: '', state: '',
         formattedAddress: `${street}, ${unit}, ${zip}`,
+        // Neighborhood data
+        neighborhoodId: selectedNeighborhood === 'individual'
+          ? null : selectedNeighborhood || null,
+        neighborhoodName: selectedNeighborhood === 'individual'
+          ? 'Individual'
+          : selectedNeighborhoodData?.name || null,
+        neighborhoodAddress: selectedNeighborhoodData?.address || null,
+        isIndividual: selectedNeighborhood === 'individual' ||
+          !selectedNeighborhood,
         offeredSkillTagIds: offeredSkills,
         desiredSkillTagIds: desiredSkills,
         skillDescription: description,
-        // Trust starts at 0 — built from reviews
         trustScore: 0,
         totalTrades: 0,
         agreedToCodeTimestamp: new Date().toISOString(),
@@ -141,7 +177,6 @@ export default function RegisterScreen() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      // App.tsx detects auth change → navigates to Home
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {
@@ -158,7 +193,7 @@ export default function RegisterScreen() {
       <View style={[styles.orb, styles.orb1]} />
       <View style={[styles.orb, styles.orb2]} />
 
-      {/* ALREADY EXISTS MODAL */}
+      {/* EMAIL EXISTS MODAL */}
       <Modal visible={showExistsModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -187,15 +222,14 @@ export default function RegisterScreen() {
               style={styles.modalCancel}
               onPress={() => setShowExistsModal(false)}
             >
-              <Text style={styles.modalCancelText}>
-                Use Different Email
-              </Text>
+              <Text style={styles.modalCancelText}>Use Different Email</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       <SafeAreaView style={{ flex: 1 }}>
+
         {/* PROGRESS BAR */}
         <View style={styles.progressBar}>
           {STEPS.map((s, i) => (
@@ -268,9 +302,7 @@ export default function RegisterScreen() {
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.primaryBtnText}>
-                      Continue →
-                    </Text>
+                    <Text style={styles.primaryBtnText}>Continue →</Text>
                   )}
                 </LinearGradient>
               </TouchableOpacity>
@@ -283,9 +315,7 @@ export default function RegisterScreen() {
                 style={styles.backLink}
                 onPress={() => navigation.navigate('Landing')}
               >
-                <Text style={styles.backLinkText}>
-                  ← Back to home
-                </Text>
+                <Text style={styles.backLinkText}>← Back to home</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -295,9 +325,10 @@ export default function RegisterScreen() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Your Details</Text>
               <Text style={styles.cardSub}>
-                How other traders will know you.
+                How other traders will find and know you.
               </Text>
 
+              {/* NAME */}
               <View style={styles.row}>
                 <View style={{ flex: 1, marginRight: 8 }}>
                   <Text style={styles.label}>FIRST NAME *</Text>
@@ -340,12 +371,179 @@ export default function RegisterScreen() {
                 keyboardType="phone-pad"
               />
 
+              {/* LOCATION SECTION */}
               <Text style={styles.sectionDivider}>📍 Your Location</Text>
               <Text style={styles.locationHint}>
-                Used to match you with nearby traders. Never shared publicly.
+                Used to match you with nearby traders and communities.
               </Text>
 
-              <Text style={styles.label}>STREET ADDRESS</Text>
+              {/* ZIP CODE */}
+              <Text style={styles.label}>ZIP CODE *</Text>
+              <TextInput
+                style={styles.inputSolo}
+                placeholder="78660"
+                placeholderTextColor="rgba(255,255,255,0.25)"
+                value={zip}
+                onChangeText={(text) => {
+                  setZip(text);
+                  // Auto-search neighborhoods when zip is complete
+                  if (text.length === 5) {
+                    searchForNeighborhoods(text, neighborhoodQuery);
+                  }
+                }}
+                keyboardType="numeric"
+                maxLength={5}
+              />
+
+              {/* NEIGHBORHOOD SEARCH */}
+              <Text style={styles.label}>YOUR COMMUNITY</Text>
+              <Text style={styles.locationHint}>
+                Select your apartment, housing community, university,
+                or dorm. Choose "Individual" if not applicable.
+              </Text>
+
+              <View style={styles.searchRow}>
+                <TextInput
+                  style={[styles.inputSolo, { flex: 1 }]}
+                  placeholder={
+                    zip.length < 5
+                      ? 'Enter zip code first...'
+                      : 'Search your community...'
+                  }
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  value={neighborhoodQuery}
+                  onChangeText={(text) => {
+                    setNeighborhoodQuery(text);
+                    if (zip.length === 5) {
+                      searchForNeighborhoods(zip, text);
+                    }
+                  }}
+                  editable={zip.length === 5 &&
+                    selectedNeighborhood !== 'individual'}
+                />
+                {neighborhoodSearching && (
+                  <ActivityIndicator
+                    size="small"
+                    color="#7C3AED"
+                    style={styles.searchSpinner}
+                  />
+                )}
+              </View>
+
+              {/* INDIVIDUAL OPTION — always shown */}
+              <TouchableOpacity
+                style={[
+                  styles.neighborhoodOption,
+                  selectedNeighborhood === 'individual' &&
+                    styles.neighborhoodOptionActive,
+                ]}
+                onPress={() => {
+                  setSelectedNeighborhood('individual');
+                  setSelectedNeighborhoodData(null);
+                  setNeighborhoodQuery('Individual / Not part of a community');
+                  setNeighborhoods([]);
+                }}
+              >
+                <Text style={styles.neighborhoodOptionIcon}>🏠</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[
+                    styles.neighborhoodOptionName,
+                    selectedNeighborhood === 'individual' &&
+                      styles.neighborhoodOptionNameActive,
+                  ]}>
+                    Individual / Not Sure
+                  </Text>
+                  <Text style={styles.neighborhoodOptionAddr}>
+                    Browse and trade with everyone in your area
+                  </Text>
+                </View>
+                {selectedNeighborhood === 'individual' && (
+                  <Text style={styles.checkmark}>✓</Text>
+                )}
+              </TouchableOpacity>
+
+              {/* SEARCH RESULTS */}
+              {neighborhoods.length > 0 &&
+                selectedNeighborhood !== 'individual' && (
+                <View style={styles.neighborhoodList}>
+                  <Text style={styles.resultsLabel}>
+                    {neighborhoods.length} communities found nearby
+                  </Text>
+                  {neighborhoods.map((n) => (
+                    <TouchableOpacity
+                      key={n.placeId}
+                      style={[
+                        styles.neighborhoodOption,
+                        selectedNeighborhood === n.placeId &&
+                          styles.neighborhoodOptionActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedNeighborhood(n.placeId);
+                        setSelectedNeighborhoodData(n);
+                        setNeighborhoodQuery(n.name);
+                        setNeighborhoods([]);
+                      }}
+                    >
+                      <Text style={styles.neighborhoodOptionIcon}>🏘️</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[
+                          styles.neighborhoodOptionName,
+                          selectedNeighborhood === n.placeId &&
+                            styles.neighborhoodOptionNameActive,
+                        ]}>
+                          {n.name}
+                        </Text>
+                        <Text
+                          style={styles.neighborhoodOptionAddr}
+                          numberOfLines={1}
+                        >
+                          {n.address}
+                        </Text>
+                      </View>
+                      {selectedNeighborhood === n.placeId && (
+                        <Text style={styles.checkmark}>✓</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* SELECTED — show clear button */}
+              {selectedNeighborhood &&
+                selectedNeighborhood !== 'individual' && (
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={() => {
+                    setSelectedNeighborhood('');
+                    setSelectedNeighborhoodData(null);
+                    setNeighborhoodQuery('');
+                    setNeighborhoods([]);
+                  }}
+                >
+                  <Text style={styles.clearBtnText}>
+                    ✕ Clear community selection
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* NO RESULTS */}
+              {zip.length === 5 &&
+                !neighborhoodSearching &&
+                neighborhoods.length === 0 &&
+                neighborhoodQuery.length > 2 &&
+                !selectedNeighborhood && (
+                <View style={styles.noResultsBox}>
+                  <Text style={styles.noResultsText}>
+                    No communities found for "{neighborhoodQuery}".{'\n'}
+                    Try a different name or select Individual.
+                  </Text>
+                </View>
+              )}
+
+              {/* STREET ADDRESS */}
+              <Text style={[styles.label, { marginTop: 16 }]}>
+                STREET ADDRESS
+              </Text>
               <TextInput
                 style={styles.inputSolo}
                 placeholder="123 Main St (optional)"
@@ -363,17 +561,6 @@ export default function RegisterScreen() {
                     placeholderTextColor="rgba(255,255,255,0.25)"
                     value={unit}
                     onChangeText={setUnit}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>ZIP CODE *</Text>
-                  <TextInput
-                    style={styles.inputSolo}
-                    placeholder="78660"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
-                    value={zip}
-                    onChangeText={setZip}
-                    keyboardType="numeric"
                   />
                 </View>
               </View>
@@ -627,7 +814,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardSub: {
-    fontSize: 14, color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
     marginBottom: 24, lineHeight: 20,
     fontWeight: '300',
   },
@@ -669,19 +857,80 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     paddingHorizontal: 14, paddingVertical: 14,
     fontSize: 15, color: '#fff',
-    marginBottom: 16,
-    minHeight: 90,
+    marginBottom: 16, minHeight: 90,
     textAlignVertical: 'top',
   },
   sectionDivider: {
     fontSize: 15, fontWeight: '800',
-    color: '#A78BFA', marginTop: 20,
-    marginBottom: 6,
+    color: '#A78BFA', marginTop: 20, marginBottom: 6,
   },
   locationHint: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.3)',
-    marginBottom: 12, lineHeight: 18,
+    marginBottom: 10, lineHeight: 18,
+  },
+
+  // NEIGHBORHOOD SEARCH
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  searchSpinner: { marginLeft: 8 },
+  neighborhoodList: { gap: 8, marginBottom: 8, marginTop: 4 },
+  resultsLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.3)',
+    marginBottom: 6,
+    letterSpacing: 0.3,
+  },
+  neighborhoodOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  neighborhoodOptionActive: {
+    backgroundColor: 'rgba(124,58,237,0.2)',
+    borderColor: '#7C3AED',
+  },
+  neighborhoodOptionIcon: { fontSize: 20 },
+  neighborhoodOptionName: {
+    fontSize: 13, fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 2,
+  },
+  neighborhoodOptionNameActive: { color: '#A78BFA' },
+  neighborhoodOptionAddr: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.25)',
+    lineHeight: 15,
+  },
+  checkmark: {
+    color: '#7C3AED', fontSize: 18, fontWeight: '900',
+  },
+  clearBtn: {
+    alignItems: 'center',
+    paddingVertical: 8, marginBottom: 8,
+  },
+  clearBtnText: {
+    color: '#FF2D78', fontSize: 12, fontWeight: '600',
+  },
+  noResultsBox: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 10, padding: 12,
+    marginBottom: 8,
+  },
+  noResultsText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.3)',
+    textAlign: 'center', lineHeight: 18,
   },
 
   // BUTTONS
@@ -704,8 +953,7 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.25)',
-    textAlign: 'center',
-    marginTop: 10, lineHeight: 18,
+    textAlign: 'center', marginTop: 10, lineHeight: 18,
   },
 
   // SKILLS
@@ -715,10 +963,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     letterSpacing: 1.5, marginBottom: 10,
   },
-  skillGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap', gap: 8,
-  },
+  skillGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   skillChip: {
     paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: 8,
@@ -790,7 +1035,6 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: 'center', fontSize: 11,
     color: 'rgba(255,255,255,0.15)',
-    letterSpacing: 0.3, lineHeight: 18,
-    marginTop: 8,
+    letterSpacing: 0.3, lineHeight: 18, marginTop: 8,
   },
 });
